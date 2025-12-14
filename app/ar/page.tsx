@@ -5,62 +5,77 @@ import { useEffect, useState } from "react";
 import Script from "next/script";
 
 export default function ARPage() {
-  const [libsLoaded, setLibsLoaded] = useState(false);
+  const [aframeReady, setAframeReady] = useState(false);
+  const [arjsReady, setArjsReady] = useState(false);
 
   useEffect(() => {
-    // إعدادات الصفحة الأساسية
-    document.documentElement.style.cssText = "margin:0; padding:0; height:100%; overflow:hidden;";
-    document.body.style.cssText = "margin:0; padding:0; height:100%; overflow:hidden; background-color:#000;";
+    const root = document.documentElement;
+    root.style.margin = "0";
+    root.style.padding = "0";
+    root.style.height = "100%";
+    root.style.overflow = "hidden";
+
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
+    document.body.style.height = "100%";
+    document.body.style.overflow = "hidden";
+    document.body.style.backgroundColor = "#000";
 
     const fixLayout = () => {
-      const video = document.getElementById("arjs-video");
-      const canvas = document.querySelector("canvas.a-canvas");
+      const video = document.getElementById("arjs-video") as HTMLVideoElement | null;
+      const canvas = document.querySelector("canvas.a-canvas") as HTMLCanvasElement | null;
 
-      // الحيلة الجديدة: لا تكبير (Scale) بل ملء الشاشة بذكاء
-      if (video && canvas) {
-        // الفيديو يملأ الشاشة بالكامل (Cover) بدون ما ينضغط
-        video.style.cssText = `
-          position: fixed !important; 
-          top: 0 !important; left: 0 !important; 
-          width: 100vw !important; height: 100vh !important; 
-          object-fit: cover !important; 
-          z-index: 0 !important; 
-          margin: 0 !important;
-        `;
-        
-        // الكانفس يطابق الفيديو
-        canvas.style.cssText = `
-          position: fixed !important; 
-          top: 0 !important; left: 0 !important; 
-          width: 100vw !important; height: 100vh !important; 
-          z-index: 1 !important; 
-          background: transparent !important;
-        `;
+      if (video) {
+        // الحل الأساسي لمشكلة التقريب: نخلي الفيديو بحجمه الفعلي
+        // بدون ما AR.js يعدّل عليه (تكبير/تصغير)
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        video.style.position = "fixed";
+        video.style.left = "0";
+        video.style.top = "0";
+        video.style.width = "100vw";
+        video.style.height = "100vh";
+        video.style.objectFit = "cover";
+        video.style.zIndex = "0";
+        video.style.transform = "none"; // لا تقريب ولا تحريك
+
+        // اجبر الفيديو يشتغل كامل الشاشة
+        video.setAttribute("width", String(vw));
+        video.setAttribute("height", String(vh));
+      }
+
+      if (canvas) {
+        canvas.style.position = "fixed";
+        canvas.style.left = "0";
+        canvas.style.top = "0";
+        canvas.style.width = "100vw";
+        canvas.style.height = "100vh";
+        canvas.style.zIndex = "1";
+        canvas.style.transform = "none";
       }
     };
 
-    const timer = setInterval(fixLayout, 500);
+    const it = setInterval(fixLayout, 200);
     window.addEventListener("resize", fixLayout);
 
     return () => {
-      clearInterval(timer);
+      clearInterval(it);
       window.removeEventListener("resize", fixLayout);
     };
   }, []);
 
   const onAframeLoad = () => {
-    if (document.getElementById("arjs-script")) return;
+    setAframeReady(true);
+    if (document.getElementById("arjs-lib")) return;
     const s = document.createElement("script");
-    s.id = "arjs-script";
+    s.id = "arjs-lib";
     s.src = "https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js";
-    s.onload = () => {
-      // تسجيل مكونات إضافية للتأثيرات البصرية
-      setTimeout(() => {
-        setLibsLoaded(true);
-      }, 100);
-    };
+    s.onload = () => setArjsReady(true);
     document.head.appendChild(s);
   };
+
+  const libsReady = aframeReady && arjsReady;
 
   return (
     <>
@@ -71,80 +86,143 @@ export default function ARPage() {
       />
 
       <style jsx global>{`
-        /* تأثير توهج للنص */
-        .glow-text {
-          text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden !important;
+          background: #000;
         }
-        .a-enter-vr-button, .a-enter-ar-button { display: none !important; }
+
+        #arjs-video {
+          max-width: none !important;
+          max-height: none !important;
+        }
+
+        .a-enter-vr-button,
+        .a-enter-ar-button {
+          display: none !important;
+        }
       `}</style>
 
-      {libsLoaded && (
+      {libsReady && (
         <div suppressHydrationWarning>
           <a-scene
             embedded
-            renderer="logarithmicDepthBuffer: true; antialias: true; colorManagement: true; sortObjects: true;"
+            background="transparent: true"
+            renderer="alpha: true; antialias: true; logarithmicDepthBuffer: true; precision: highp;"
             arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
             vr-mode-ui="enabled: false"
           >
-            {/* إضاءة سينمائية */}
-            <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
-            <a-light type="point" color="#00ffff" intensity="2" position="0 2 0" distance="10" decay="2"></a-light>
-            <a-light type="directional" color="#ffd700" intensity="1" position="-1 1 0"></a-light>
+            {/* إضاءة متقدمة */}
+            <a-light type="ambient" intensity="1.5" color="#fff"></a-light>
+            <a-light type="directional" intensity="2" position="5 10 5" color="#fff"></a-light>
+            <a-light type="point" intensity="1.2" position="0 2 0" color="#00FFFF"></a-light>
 
+            {/* ماركر Hiro - البوابة الزمنية المتقدمة */}
             <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
               
-              {/* مجموعة البوابة الزمنية */}
-              <a-entity position="0 0.5 0" rotation="-90 0 0">
-                
-                {/* 1. الحلقة الرئيسية (الزجاجية) */}
-                <a-torus
-                  radius="1.2"
-                  radius-tubular="0.1"
-                  segments-tubular="64"
-                  material="color: #00ffff; opacity: 0.3; transparent: true; metalness: 0.9; roughness: 0.1;"
-                  animation="property: rotation; to: 0 0 360; loop: true; dur: 10000; easing: linear"
-                ></a-torus>
+              {/* الحلقة الخارجية (الأساس) */}
+              <a-torus
+                position="0 0.5 0"
+                radius="1.2"
+                radius-tubular="0.08"
+                color="#00FFFF"
+                material="opacity: 0.95; metalness: 0.9; roughness: 0.1; emissive: #0099FF; emissiveIntensity: 0.3;"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"
+              ></a-torus>
 
-                {/* 2. حلقات الطاقة (مضيئة) */}
-                <a-torus
-                  radius="1.4"
-                  radius-tubular="0.02"
-                  segments-tubular="64"
-                  material="color: #00ffff; emissive: #00ffff; emissiveIntensity: 2;"
-                  animation="property: rotation; to: 0 0 -360; loop: true; dur: 5000; easing: linear"
-                ></a-torus>
+              {/* الحلقة الثانية (عكس الاتجاه) */}
+              <a-torus
+                position="0 0.5 0"
+                rotation="90 0 0"
+                radius="0.95"
+                radius-tubular="0.06"
+                color="#FFD700"
+                material="opacity: 0.9; metalness: 0.95; roughness: 0.05; emissive: #FFA500; emissiveIntensity: 0.4;"
+                animation="property: rotation; to: 360 0 0; loop: true; dur: 5000; easing: linear"
+              ></a-torus>
 
-                {/* 3. النواة الذهبية (تنبض) */}
-                <a-sphere
-                  radius="0.3"
-                  material="color: #ffd700; emissive: #ffd700; emissiveIntensity: 1; wireframe: true;"
-                  animation="property: scale; dir: alternate; dur: 1500; loop: true; to: 1.2 1.2 1.2"
-                ></a-sphere>
+              {/* الحلقة الثالثة (قطر صغير) */}
+              <a-torus
+                position="0 0.5 0"
+                rotation="45 45 0"
+                radius="0.65"
+                radius-tubular="0.04"
+                color="#FF00FF"
+                material="opacity: 0.85; metalness: 0.8; roughness: 0.15; emissive: #FF1493; emissiveIntensity: 0.3;"
+                animation="property: rotation; to: -360 -360 0; loop: true; dur: 6000; easing: linear"
+              ></a-torus>
 
-                {/* 4. جزيئات تدور (كأنها كواكب صغيرة) */}
-                <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear">
-                    <a-sphere position="1.2 0 0" radius="0.05" color="#fff" material="emissive: #fff; emissiveIntensity: 5"></a-sphere>
-                </a-entity>
-                 <a-entity rotation="0 90 0" animation="property: rotation; to: 0 360 90; loop: true; dur: 6000; easing: linear">
-                    <a-sphere position="1.2 0 0" radius="0.05" color="#ffd700" material="emissive: #ffd700; emissiveIntensity: 5"></a-sphere>
-                </a-entity>
+              {/* نواة البوابة (كرة نابضة متوهجة) */}
+              <a-sphere
+                position="0 0.5 0"
+                radius="0.3"
+                color="#00FFFF"
+                material="opacity: 0.8; metalness: 1; roughness: 0; emissive: #00FFFF; emissiveIntensity: 0.8;"
+                animation="property: scale; dir: alternate; dur: 1200; loop: true; to: 1.3 1.3 1.3"
+              ></a-sphere>
 
-              </a-entity>
-
-              {/* نص ثلاثي الأبعاد بتصميم جديد */}
+              {/* النص الرئيسي */}
               <a-text
-                value="ZAMAN AR"
-                font="exo2bold"
-                position="0 1.5 0.5"
+                value="⚡ ZAMAN ⚡"
+                position="0 2.2 0"
                 align="center"
-                color="#ffffff"
-                width="6"
-                rotation="-90 0 0"
+                color="#FFFFFF"
+                scale="2.2 2.2 2.2"
+                material="emissive: #00FFFF; emissiveIntensity: 0.5;"
+                animation="property: position; dir: alternate; dur: 2500; loop: true; to: 0 2.5 0"
               ></a-text>
+
+              {/* نص ثانوي (البوابة) */}
+              <a-text
+                value="GATEWAY"
+                position="0 -0.5 0"
+                align="center"
+                color="#FFD700"
+                scale="1.2 1.2 1.2"
+                material="emissive: #FF8C00; emissiveIntensity: 0.3;"
+              ></a-text>
+
+              {/* جسيمات/نجوم حول البوابة (أعمدة متوهجة) */}
+              <a-sphere
+                position="1.5 0.5 0"
+                radius="0.15"
+                color="#00FFFF"
+                material="emissive: #00FFFF; emissiveIntensity: 0.9;"
+                animation="property: position; dir: alternate; dur: 3000; loop: true; to: 2 0.5 0"
+              ></a-sphere>
+
+              <a-sphere
+                position="-1.5 0.5 0"
+                radius="0.15"
+                color="#FFD700"
+                material="emissive: #FFD700; emissiveIntensity: 0.9;"
+                animation="property: position; dir: alternate; dur: 3000; loop: true; to: -2 0.5 0"
+              ></a-sphere>
+
+              <a-sphere
+                position="0 0.5 1.5"
+                radius="0.15"
+                color="#FF00FF"
+                material="emissive: #FF00FF; emissiveIntensity: 0.9;"
+                animation="property: position; dir: alternate; dur: 3000; loop: true; to: 0 0.5 2"
+              ></a-sphere>
+
+              <a-sphere
+                position="0 0.5 -1.5"
+                radius="0.15"
+                color="#00FF88"
+                material="emissive: #00FF88; emissiveIntensity: 0.9;"
+                animation="property: position; dir: alternate; dur: 3000; loop: true; to: 0 0.5 -2"
+              ></a-sphere>
 
             </a-marker>
 
-            <a-entity camera></a-entity>
+            {/* الكاميرا */}
+            <a-entity camera="active: true; fov: 80;"></a-entity>
           </a-scene>
         </div>
       )}
