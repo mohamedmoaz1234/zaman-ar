@@ -9,14 +9,10 @@ export default function ARPage() {
 
   useEffect(() => {
     setMounted(true);
-    // إجبار الجسم على عدم التحرك لمنع ظهور حواف بيضاء عند السحب
+    // تنظيف أي إعدادات سابقة للجسم
     document.body.style.overflow = 'hidden';
-    document.body.style.margin = '0';
-    
     return () => {
-      // تنظيف الستايل عند الخروج من الصفحة
       document.body.style.overflow = '';
-      document.body.style.margin = '';
     };
   }, []);
 
@@ -24,9 +20,13 @@ export default function ARPage() {
 
   return (
     <>
-      {/* 1. تحميل المكتبات بترتيب صحيح ومضمون */}
+      {/* 
+         التغيير الحاسم هنا:
+         استبدلنا نسخة 1.4.2 بنسخة 1.2.0 
+         هذا سيحل مشكلة EventDispatcher فوراً 
+      */}
       <Script 
-        src="https://aframe.io/releases/1.4.2/aframe.min.js" 
+        src="https://aframe.io/releases/1.2.0/aframe.min.js" 
         strategy="beforeInteractive" 
       />
       <Script 
@@ -34,7 +34,6 @@ export default function ARPage() {
         strategy="afterInteractive" 
       />
 
-      {/* 2. ستايل خاص لإجبار الفيديو على ملء الشاشة */}
       <style jsx global>{`
         body, html {
           margin: 0;
@@ -42,82 +41,69 @@ export default function ARPage() {
           overflow: hidden !important;
           width: 100%;
           height: 100%;
+          background-color: black; /* خلفية سوداء بدل الأبيض المزعج */
         }
-        /* إخفاء زر الـ VR المزعج أسفل الشاشة */
-        .a-enter-vr-button {
+        .a-enter-vr-button, .a-enter-ar-button {
           display: none !important;
         }
-        /* التأكد من أن الكانفس يغطي كل شيء */
-        .a-canvas {
+        /* إجبار الفيديو والكانفس على الامتلاء */
+        .a-canvas, #arjs-video {
           width: 100% !important;
           height: 100% !important;
           top: 0 !important;
           left: 0 !important;
-          position: fixed !important;
-        }
-        /* إصلاح مشكلة الفيديو الذي يظهر بحجم صغير أحياناً */
-        video {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-            position: absolute !important;
-            top: 0;
-            left: 0;
-            z-index: -1;
+          position: absolute !important;
+          z-index: 0 !important;
+          object-fit: cover !important;
         }
       `}</style>
 
-      {/* 3. مشهد الواقع المعزز */}
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 1 }}>
+      {/* مشهد AR */}
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
         <a-scene
           embedded
           arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
           vr-mode-ui="enabled: false"
-          renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true"
+          renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
         >
-          {/* الإضاءة */}
+          {/* إضاءة */}
           <a-light type="ambient" intensity="1"></a-light>
-          <a-light type="directional" intensity="1.5" position="1 1 1"></a-light>
+          <a-light type="directional" intensity="1" position="-1 1 0"></a-light>
 
           {/* الماركر Hiro */}
           <a-marker preset="hiro">
             
-            {/* البوابة الزمنية (Torus) */}
+            {/* البوابة الزمنية - الحلقات */}
             <a-torus 
               position="0 0.5 0" 
               rotation="0 0 0" 
               radius="1.2" 
               radius-tubular="0.05" 
               color="#00FFFF"
-              material="opacity: 0.8; metalness: 0.8; roughness: 0.2;"
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear"
-            >
+              material="opacity: 0.9; metalness: 0.8; roughness: 0.2;"
+              animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear">
             </a-torus>
             
-            {/* حلقة داخلية للبوابة بلون مختلف للتأثير */}
             <a-torus 
               position="0 0.5 0" 
               rotation="90 0 0" 
               radius="1.0" 
-              radius-tubular="0.02" 
+              radius-tubular="0.03" 
               color="#FFD700"
-              animation="property: rotation; to: 360 0 0; loop: true; dur: 3000; easing: linear"
-            >
+              animation="property: rotation; to: 360 0 0; loop: true; dur: 3000; easing: linear">
             </a-torus>
 
-            {/* نص يظهر فوق البوابة */}
             <a-text 
                 value="ZAMAN GATE" 
                 position="0 2 0" 
                 align="center" 
                 color="#FFFFFF" 
-                scale="1.5 1.5 1.5"
-                animation="property: position; dir: alternate; dur: 2000; loop: true; to: 0 2.2 0"
-            ></a-text>
+                scale="2 2 2"
+                animation="property: position; dir: alternate; dur: 2000; loop: true; to: 0 2.2 0">
+            </a-text>
 
           </a-marker>
 
-          {/* الكاميرا */}
           <a-entity camera></a-entity>
         </a-scene>
       </div>
