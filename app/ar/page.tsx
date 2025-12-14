@@ -8,9 +8,42 @@ export default function ARRealPage() {
   const [arReady, setArReady] = useState(false);
 
   return (
-    // أجبرنا الحاوية تكون سوداء وتغطي الشاشة بالكامل بدون سكرول
-    <div className="bg-black w-screen h-screen overflow-hidden relative m-0 p-0">
-      
+    <>
+      {/* 
+        هنا نلغي أي هوامش للصفحة ونخلي الخلفية شفافة 
+        عشان الفيديو يظهر 
+      */}
+      <style jsx global>{`
+        body {
+          margin: 0;
+          padding: 0;
+          overflow: hidden !important; /* ممنوع السكرول نهائياً */
+          background-color: transparent !important;
+        }
+        
+        /* اجبار فيديو الكاميرا يملأ الشاشة */
+        #arjs-video {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          z-index: -1 !important; /* في الخلفية تماماً */
+          margin: 0 !important;
+        }
+
+        /* اجبار الكانفاس (المجسمات) يجي فوق الفيديو */
+        .a-canvas {
+          width: 100% !important;
+          height: 100% !important;
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          z-index: 0 !important;
+        }
+      `}</style>
+
       {/* سكريبتات AR */}
       <Script
         src="https://aframe.io/releases/1.2.0/aframe.min.js"
@@ -20,25 +53,40 @@ export default function ARRealPage() {
         src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"
         onLoad={() => {
           console.log("AR.js Loaded");
-          setArReady(true);
+          // تأخير بسيط للتأكد من تحميل كل شيء
+          setTimeout(() => setArReady(true), 1000);
         }}
       />
 
-      {/* زر الخروج */}
-      <div className="absolute top-4 right-4 z-50 pointer-events-none">
+      {/* واجهة المستخدم (فوق كل شيء z-50) */}
+      <div style={{ position: 'fixed', top: '10px', right: '10px', zIndex: 9999 }}>
         <a
           href="/"
-          className="pointer-events-auto bg-black/40 text-white px-4 py-2 rounded-full text-xs border border-white/20 backdrop-blur-md"
+          style={{
+            background: 'rgba(0,0,0,0.5)',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '20px',
+            textDecoration: 'none',
+            fontSize: '12px',
+            fontFamily: 'sans-serif'
+          }}
         >
           ⬅ خروج
         </a>
       </div>
 
-      {/* رسالة توجيه */}
-      <div className="absolute bottom-10 left-0 right-0 z-50 text-center pointer-events-none">
-        <div className="bg-black/60 text-yellow-400 inline-block px-5 py-3 rounded-xl text-sm backdrop-blur-md border border-yellow-500/30 shadow-lg">
-           وجه الكاميرا نحو علامة "HIRO" 🔳
-        </div>
+      <div style={{ position: 'fixed', bottom: '20px', left: 0, right: 0, textAlign: 'center', zIndex: 9999, pointerEvents: 'none' }}>
+        <span style={{
+          background: 'rgba(0,0,0,0.6)',
+          color: '#FFD700',
+          padding: '8px 15px',
+          borderRadius: '10px',
+          fontSize: '14px',
+          fontFamily: 'sans-serif'
+        }}>
+           وجه الكاميرا لعلامة HIRO
+        </span>
       </div>
 
       {/* المشهد */}
@@ -47,69 +95,25 @@ export default function ARRealPage() {
           embedded
           arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
           vr-mode-ui="enabled: false"
-          renderer="logarithmicDepthBuffer: true;"
-          // هذا الستايل يجبر الـ Canvas يغطي الشاشة
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            zIndex: 1,
-          }}
+          renderer="logarithmicDepthBuffer: true; alpha: true;"
         >
-          <a-light type="ambient" color="#fff" intensity="1.2" />
-          
           <a-marker preset="hiro">
             <a-box 
               position="0 0.5 0" 
-              material="color: yellow; opacity: 0.8; transparent: true;"
+              material="color: yellow; opacity: 0.8;"
               animation="property: rotation; to: 0 360 0; loop: true; dur: 3000"
             ></a-box>
-
-            <a-text
+             <a-text
               value="Zaman AR"
               position="0 1.5 0"
               align="center"
-              color="#fff"
+              color="white"
               scale="2 2 2"
             ></a-text>
           </a-marker>
-
           <a-entity camera></a-entity>
         </a-scene>
       )}
-
-      {/* 
-        إصلاح سحري لمشكلة الكاميرا في الجوال:
-        نجبر فيديو الكاميرا والكانفاس يملوا الشاشة غصب
-      */}
-      <style jsx global>{`
-        body, html {
-          margin: 0;
-          padding: 0;
-          overflow: hidden;
-          width: 100%;
-          height: 100%;
-          background-color: black !important;
-        }
-        
-        /* نجبر فيديو الكاميرا يكون خلفية كاملة */
-        video.a-canvas {
-          width: 100% !important;
-          height: 100% !important;
-          object-fit: cover !important;
-          position: absolute !important;
-          top: 0 !important;
-          left: 0 !important;
-          z-index: 0 !important;
-        }
-        
-        /* نخفي أي حاوية بيضاء */
-        .a-enter-vr {
-          display: none;
-        }
-      `}</style>
-    </div>
+    </>
   );
 }
