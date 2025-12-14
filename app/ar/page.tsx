@@ -9,7 +9,7 @@ export default function ARPage() {
   const [arjsReady, setArjsReady] = useState(false);
 
   useEffect(() => {
-    // منع أي هوامش/سكرول
+    // صفّر الصفحة
     document.documentElement.style.margin = "0";
     document.documentElement.style.padding = "0";
     document.body.style.margin = "0";
@@ -17,86 +17,93 @@ export default function ARPage() {
     document.body.style.overflow = "hidden";
     document.body.style.background = "#000";
 
-    const forceFullscreenLayers = () => {
+    const fixARView = () => {
       const video = document.getElementById("arjs-video") as HTMLVideoElement | null;
-      const videoWrap = (video?.parentElement as HTMLElement | null) ?? null;
       const canvas = document.querySelector("canvas.a-canvas") as HTMLCanvasElement | null;
-      const scene = document.querySelector("a-scene") as HTMLElement | null;
 
-      // 1) إصلاح الحاوية التي AR.js يضع فيها transform/scale (المشكلة الأساسية في الجوال)
-      if (videoWrap) {
-        videoWrap.style.position = "fixed";
-        videoWrap.style.left = "0";
-        videoWrap.style.top = "0";
-        videoWrap.style.width = "100vw";
-        videoWrap.style.height = "100vh";
-        // إلغاء أي تمركز/تحجيم من AR.js
-        videoWrap.style.transform = "none";
-        videoWrap.style.margin = "0";
-        videoWrap.style.padding = "0";
-        videoWrap.style.zIndex = "0";
-        videoWrap.style.background = "transparent";
+      if (!video || !canvas) return;
+
+      // 1) نختار الحاوية (غالباً هي parent للفيديو)
+      let container = video.parentElement as HTMLElement | null;
+      if (!container) return;
+
+      // 2) إذا الـ canvas ما داخل نفس الحاوية، ندخلو جوّاها (عشان ينطبق عليهم نفس التحجيم)
+      // هذا هو سبب مشكلة "يمين/يسار" غالباً: عنصرين في حاويتين مختلفات [web:243]
+      if (canvas.parentElement !== container) {
+        try {
+          container.appendChild(canvas);
+        } catch (e) {
+          // لو فشل النقل لأي سبب، نكمل بدون كسر الصفحة
+        }
       }
 
-      // 2) الفيديو داخل الحاوية: يملأ ويقص الزوائد
-      if (video) {
-        video.style.position = "absolute";
-        video.style.left = "0";
-        video.style.top = "0";
-        video.style.width = "100%";
-        video.style.height = "100%";
-        video.style.objectFit = "cover";
-        // إلغاء أي transform على الفيديو نفسه
-        video.style.transform = "none";
-        video.style.zIndex = "0";
-        video.style.background = "transparent";
-        // بعض الأجهزة تحتاج attributes
-        video.setAttribute("playsinline", "true");
+      // 3) حساب مقاس "Cover" للحاوية نفسها (عشان يملا الشاشة بدون فراغ)
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const videoAR =
+        video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9;
+      const screenAR = vw / vh;
+
+      let W = vw;
+      let H = vh;
+
+      if (videoAR > screenAR) {
+        // الفيديو أعرض: نخلي الارتفاع يملأ ونقص من الجنب
+        H = vh;
+        W = Math.ceil(vh * videoAR);
+      } else {
+        // الفيديو أضيق: نخلي العرض يملأ ونقص من فوق/تحت
+        W = vw;
+        H = Math.ceil(vw / videoAR);
       }
 
-      // 3) كانفس A-Frame فوق الفيديو
-      if (canvas) {
-        canvas.style.position = "fixed";
-        canvas.style.left = "0";
-        canvas.style.top = "0";
-        canvas.style.width = "100vw";
-        canvas.style.height = "100vh";
-        canvas.style.zIndex = "1";
-        canvas.style.background = "transparent";
-      }
+      // 4) ثبّت الحاوية في وسط الشاشة وبالمقاس الجديد
+      container.style.position = "fixed";
+      container.style.left = "50%";
+      container.style.top = "50%";
+      container.style.transform = "translate(-50%, -50%)";
+      container.style.width = `${W}px`;
+      container.style.height = `${H}px`;
+      container.style.margin = "0";
+      container.style.padding = "0";
+      container.style.overflow = "hidden";
+      container.style.background = "transparent";
+      container.style.zIndex = "0";
 
-      // 4) المشهد نفسه يغطي الشاشة
-      if (scene) {
-        scene.style.position = "fixed";
-        (scene.style as any).inset = "0";
-        scene.style.width = "100vw";
-        scene.style.height = "100vh";
-        scene.style.zIndex = "1";
-      }
+      // 5) خلي الفيديو يملأ الحاوية (بدون أي transform قديم)
+      video.style.position = "absolute";
+      video.style.left = "0";
+      video.style.top = "0";
+      video.style.width = "100%";
+      video.style.height = "100%";
+      video.style.objectFit = "cover";
+      video.style.transform = "none";
+      video.style.zIndex = "0";
+      video.setAttribute("playsinline", "true");
+
+      // 6) خلي الـ canvas يملأ الحاوية وفوق الفيديو
+      canvas.style.position = "absolute";
+      canvas.style.left = "0";
+      canvas.style.top = "0";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.background = "transparent";
+      canvas.style.zIndex = "1";
     };
 
-    // كرر لفترة لأن الفيديو/الحاوية تتولد بعد ثواني من بدء AR.js
-    const it = setInterval(forceFullscreenLayers, 200);
-    window.addEventListener("resize", forceFullscreenLayers);
-
-    // بعد 8 ثواني خفف الضغط (خليه مرة واحدة كل ثانية)
-    const relax = setTimeout(() => {
-      clearInterval(it);
-      const it2 = setInterval(forceFullscreenLayers, 1000);
-      (window as any).__ar_fix_it2 = it2;
-    }, 8000);
+    const it = setInterval(fixARView, 200);
+    window.addEventListener("resize", fixARView);
 
     return () => {
       clearInterval(it);
-      clearTimeout(relax);
-      if ((window as any).__ar_fix_it2) clearInterval((window as any).__ar_fix_it2);
-      window.removeEventListener("resize", forceFullscreenLayers);
+      window.removeEventListener("resize", fixARView);
       document.body.style.overflow = "";
       document.body.style.background = "";
     };
   }, []);
 
-  // تحميل AR.js بعد A‑Frame بالترتيب
+  // تحميل AR.js بعد A-Frame (ترتيب ثابت)
   const onAframeLoad = () => {
     setAframeReady(true);
 
@@ -112,7 +119,7 @@ export default function ARPage() {
 
   return (
     <>
-      {/* A‑Frame نسخة متوافقة مع AR.js */}
+      {/* A-Frame نسخة متوافقة */}
       <Script
         src="https://aframe.io/releases/1.2.0/aframe.min.js"
         strategy="afterInteractive"
@@ -130,25 +137,20 @@ export default function ARPage() {
           background: #000 !important;
         }
 
-        /* حماية إضافية: لا تخلي أي شيء يطلع برا الشاشة */
-        #ar-root {
-          position: fixed;
-          inset: 0;
-          width: 100vw;
-          height: 100vh;
-          overflow: hidden;
-          background: #000;
-        }
-
-        /* نخلي الكانفس دايماً فوق */
-        canvas.a-canvas {
-          z-index: 1 !important;
-          background: transparent !important;
-        }
-
+        /* نخفي أزرار VR/AR */
         .a-enter-vr-button,
         .a-enter-ar-button {
           display: none !important;
+        }
+
+        /* نخلي المشهد نفسه “موجود” لكن ما يفرض مقاسات */
+        a-scene {
+          position: fixed !important;
+          inset: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          background: transparent !important;
+          z-index: 0 !important;
         }
       `}</style>
 
@@ -170,7 +172,7 @@ export default function ARPage() {
       )}
 
       {libsReady && (
-        <div id="ar-root" suppressHydrationWarning>
+        <div suppressHydrationWarning>
           <a-scene
             embedded
             background="transparent: true"
@@ -201,13 +203,7 @@ export default function ARPage() {
                 animation="property: rotation; to: 360 0 0; loop: true; dur: 3500; easing: linear"
               ></a-torus>
 
-              <a-text
-                value="ZAMAN GATE"
-                position="0 2.2 0"
-                align="center"
-                color="#FFFFFF"
-                scale="2 2 2"
-              ></a-text>
+              <a-text value="ZAMAN GATE" position="0 2.2 0" align="center" color="#FFFFFF" scale="2 2 2"></a-text>
             </a-marker>
 
             <a-entity camera></a-entity>
