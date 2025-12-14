@@ -9,131 +9,128 @@ export default function ARPage() {
   const [arjsReady, setArjsReady] = useState(false);
 
   useEffect(() => {
-    // 1) تصفير الهوامش ومنع السكروول
+    // منع أي هوامش/سكرول
     document.documentElement.style.margin = "0";
     document.documentElement.style.padding = "0";
-    document.documentElement.style.height = "100%";
     document.body.style.margin = "0";
     document.body.style.padding = "0";
-    document.body.style.height = "100%";
     document.body.style.overflow = "hidden";
     document.body.style.background = "#000";
 
-    // 2) دالة "Cover" حقيقية: تملأ الشاشة بدون فراغات سوداء
-    const fixLayers = () => {
+    const forceFullscreenLayers = () => {
       const video = document.getElementById("arjs-video") as HTMLVideoElement | null;
+      const videoWrap = (video?.parentElement as HTMLElement | null) ?? null;
       const canvas = document.querySelector("canvas.a-canvas") as HTMLCanvasElement | null;
-      const scene = document.querySelector("a-scene") as any;
+      const scene = document.querySelector("a-scene") as HTMLElement | null;
 
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      // 1) إصلاح الحاوية التي AR.js يضع فيها transform/scale (المشكلة الأساسية في الجوال)
+      if (videoWrap) {
+        videoWrap.style.position = "fixed";
+        videoWrap.style.left = "0";
+        videoWrap.style.top = "0";
+        videoWrap.style.width = "100vw";
+        videoWrap.style.height = "100vh";
+        // إلغاء أي تمركز/تحجيم من AR.js
+        videoWrap.style.transform = "none";
+        videoWrap.style.margin = "0";
+        videoWrap.style.padding = "0";
+        videoWrap.style.zIndex = "0";
+        videoWrap.style.background = "transparent";
+      }
 
-      // خلي المشهد يغطي الشاشة
+      // 2) الفيديو داخل الحاوية: يملأ ويقص الزوائد
+      if (video) {
+        video.style.position = "absolute";
+        video.style.left = "0";
+        video.style.top = "0";
+        video.style.width = "100%";
+        video.style.height = "100%";
+        video.style.objectFit = "cover";
+        // إلغاء أي transform على الفيديو نفسه
+        video.style.transform = "none";
+        video.style.zIndex = "0";
+        video.style.background = "transparent";
+        // بعض الأجهزة تحتاج attributes
+        video.setAttribute("playsinline", "true");
+      }
+
+      // 3) كانفس A-Frame فوق الفيديو
+      if (canvas) {
+        canvas.style.position = "fixed";
+        canvas.style.left = "0";
+        canvas.style.top = "0";
+        canvas.style.width = "100vw";
+        canvas.style.height = "100vh";
+        canvas.style.zIndex = "1";
+        canvas.style.background = "transparent";
+      }
+
+      // 4) المشهد نفسه يغطي الشاشة
       if (scene) {
         scene.style.position = "fixed";
-        scene.style.inset = "0";
+        (scene.style as any).inset = "0";
         scene.style.width = "100vw";
         scene.style.height = "100vh";
         scene.style.zIndex = "1";
       }
-
-      // دالة Cover: تكبر العنصر وتوسّطو عشان يملأ الشاشة
-      const cover = (el: HTMLElement, ar: number) => {
-        const screenAR = vw / vh;
-        let w = vw;
-        let h = vh;
-
-        if (ar > screenAR) {
-          h = vh;
-          w = Math.ceil(vh * ar);
-        } else {
-          w = vw;
-          h = Math.ceil(vw / ar);
-        }
-
-        el.style.position = "fixed";
-        el.style.left = "50%";
-        el.style.top = "50%";
-        el.style.transform = "translate(-50%, -50%)";
-        el.style.width = `${w}px`;
-        el.style.height = `${h}px`;
-        (el.style as any).objectFit = "cover";
-      };
-
-      // الفيديو (الكاميرا)
-      if (video) {
-        video.style.zIndex = "0";
-        video.style.background = "transparent";
-
-        // أهم نقطة: احسب نسبة الأبعاد من الفيديو الحقيقي
-        const ar =
-          video.videoWidth && video.videoHeight
-            ? video.videoWidth / video.videoHeight
-            : 16 / 9;
-        cover(video, ar);
-      }
-
-      // الكانفس (WebGL فوق الفيديو)
-      if (canvas) {
-        canvas.style.zIndex = "1";
-        canvas.style.background = "transparent";
-
-        const ar =
-          video && video.videoWidth && video.videoHeight
-            ? video.videoWidth / video.videoHeight
-            : vw / vh;
-        cover(canvas, ar);
-      }
     };
 
-    // كرر fixLayers كل 300ms عشان تتأكد الفيديو اتحمل
-    const interval = setInterval(fixLayers, 300);
-    window.addEventListener("resize", fixLayers);
+    // كرر لفترة لأن الفيديو/الحاوية تتولد بعد ثواني من بدء AR.js
+    const it = setInterval(forceFullscreenLayers, 200);
+    window.addEventListener("resize", forceFullscreenLayers);
+
+    // بعد 8 ثواني خفف الضغط (خليه مرة واحدة كل ثانية)
+    const relax = setTimeout(() => {
+      clearInterval(it);
+      const it2 = setInterval(forceFullscreenLayers, 1000);
+      (window as any).__ar_fix_it2 = it2;
+    }, 8000);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener("resize", fixLayers);
+      clearInterval(it);
+      clearTimeout(relax);
+      if ((window as any).__ar_fix_it2) clearInterval((window as any).__ar_fix_it2);
+      window.removeEventListener("resize", forceFullscreenLayers);
       document.body.style.overflow = "";
       document.body.style.background = "";
     };
   }, []);
 
-  // 3) تحميل AR.js بعد A-Frame بالترتيب
+  // تحميل AR.js بعد A‑Frame بالترتيب
   const onAframeLoad = () => {
     setAframeReady(true);
 
     if (document.getElementById("arjs-lib")) return;
-
-    const script = document.createElement("script");
-    script.id = "arjs-lib";
-    script.src = "https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js";
-    script.onload = () => setArjsReady(true);
-    document.head.appendChild(script);
+    const s = document.createElement("script");
+    s.id = "arjs-lib";
+    s.src = "https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js";
+    s.onload = () => setArjsReady(true);
+    document.head.appendChild(s);
   };
 
   const libsReady = aframeReady && arjsReady;
 
   return (
     <>
-      {/* تحميل A-Frame 1.2.0 (النسخة المتوافقة) */}
+      {/* A‑Frame نسخة متوافقة مع AR.js */}
       <Script
         src="https://aframe.io/releases/1.2.0/aframe.min.js"
         strategy="afterInteractive"
         onLoad={onAframeLoad}
       />
 
-      {/* ستايلات عامة */}
       <style jsx global>{`
         html,
         body {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          height: 100%;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
           overflow: hidden !important;
-          background: #000;
+          background: #000 !important;
         }
 
+        /* حماية إضافية: لا تخلي أي شيء يطلع برا الشاشة */
         #ar-root {
           position: fixed;
           inset: 0;
@@ -143,24 +140,10 @@ export default function ARPage() {
           background: #000;
         }
 
-        #arjs-video {
-          position: fixed !important;
-          z-index: 0 !important;
-          background: transparent !important;
-        }
-
+        /* نخلي الكانفس دايماً فوق */
         canvas.a-canvas {
-          position: fixed !important;
           z-index: 1 !important;
           background: transparent !important;
-        }
-
-        a-scene {
-          position: fixed !important;
-          inset: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          z-index: 1 !important;
         }
 
         .a-enter-vr-button,
@@ -169,7 +152,6 @@ export default function ARPage() {
         }
       `}</style>
 
-      {/* شاشة تحميل */}
       {!libsReady && (
         <div
           style={{
@@ -180,40 +162,28 @@ export default function ARPage() {
             background: "#0bb4e4",
             color: "#fff",
             fontFamily: "system-ui, sans-serif",
-            fontSize: "1.5rem",
             zIndex: 9999,
           }}
         >
-          <div>جاري تحميل AR...</div>
+          جاري تحميل AR...
         </div>
       )}
 
-      {/* مشهد AR بعد جاهزية المكتبات */}
       {libsReady && (
         <div id="ar-root" suppressHydrationWarning>
           <a-scene
             embedded
             background="transparent: true"
-            renderer="alpha: true; antialias: true; logarithmicDepthBuffer: true;"
-            arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+            renderer="alpha: true; antialias: true;"
+            arjs="sourceType: webcam; facingMode: environment; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
             vr-mode-ui="enabled: false"
           >
-            {/* الإضاءة */}
             <a-light type="ambient" intensity="1.2"></a-light>
             <a-light type="directional" intensity="1.5" position="1 1 0"></a-light>
 
-            {/* ماركر Hiro */}
-            <a-marker
-              preset="hiro"
-              smooth="true"
-              smoothCount="10"
-              smoothTolerance="0.01"
-              smoothThreshold="5"
-            >
-              {/* بوابة زمنية - الحلقة الخارجية */}
+            <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
               <a-torus
                 position="0 0.5 0"
-                rotation="0 0 0"
                 radius="1.4"
                 radius-tubular="0.05"
                 color="#00FFFF"
@@ -221,7 +191,6 @@ export default function ARPage() {
                 animation="property: rotation; to: 0 360 0; loop: true; dur: 6000; easing: linear"
               ></a-torus>
 
-              {/* بوابة زمنية - الحلقة الوسطى */}
               <a-torus
                 position="0 0.5 0"
                 rotation="90 0 0"
@@ -232,28 +201,15 @@ export default function ARPage() {
                 animation="property: rotation; to: 360 0 0; loop: true; dur: 3500; easing: linear"
               ></a-torus>
 
-              {/* بوابة زمنية - الحلقة الداخلية النابضة */}
-              <a-torus
-                position="0 0.5 0"
-                radius="0.6"
-                radius-tubular="0.02"
-                color="#FFFFFF"
-                material="opacity: 0.6; metalness: 0.5;"
-                animation="property: scale; dir: alternate; dur: 1000; loop: true; to: 1.15 1.15 1.15"
-              ></a-torus>
-
-              {/* النص فوق البوابة */}
               <a-text
                 value="ZAMAN GATE"
                 position="0 2.2 0"
                 align="center"
                 color="#FFFFFF"
                 scale="2 2 2"
-                animation="property: position; dir: alternate; dur: 2000; loop: true; to: 0 2.4 0"
               ></a-text>
             </a-marker>
 
-            {/* الكاميرا */}
             <a-entity camera></a-entity>
           </a-scene>
         </div>
