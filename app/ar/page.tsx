@@ -1,15 +1,12 @@
 // @ts-nocheck
 "use client";
 
-import { useState } from "react";
 import Script from "next/script";
 
 export default function ARRealPage() {
-  const [arReady, setArReady] = useState(false);
-
   return (
     <>
-      {/* إلغاء سكرول وأي هوامش */}
+      {/* نضبط الجسم لمنع السكرول وتكبير الكاميرا */}
       <style jsx global>{`
         body {
           margin: 0;
@@ -18,7 +15,6 @@ export default function ARRealPage() {
           background-color: black !important;
         }
 
-        /* فيديو الكاميرا يملأ الشاشة */
         #arjs-video {
           width: 100% !important;
           height: 100% !important;
@@ -30,7 +26,6 @@ export default function ARRealPage() {
           margin: 0 !important;
         }
 
-        /* الكانفاس فوق الفيديو مباشرة */
         .a-canvas {
           width: 100% !important;
           height: 100% !important;
@@ -45,20 +40,11 @@ export default function ARRealPage() {
         }
       `}</style>
 
-      {/* مكتبات A-Frame + AR.js */}
-      <Script
-        src="https://aframe.io/releases/1.2.0/aframe.min.js"
-        strategy="beforeInteractive"
-      />
-      <Script
-        src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"
-        strategy="beforeInteractive"
-        onLoad={() => {
-          setTimeout(() => setArReady(true), 800);
-        }}
-      />
+      {/* تحميل مكتبات A-Frame و AR.js */}
+      <Script src="https://aframe.io/releases/1.2.0/aframe.min.js" />
+      <Script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js" />
 
-      {/* زر الخروج */}
+      {/* زر الرجوع */}
       <div
         style={{
           position: "fixed",
@@ -113,72 +99,70 @@ export default function ARRealPage() {
         </span>
       </div>
 
-      {/* مشهد AR */}
-      {arReady && (
-        <a-scene
-          embedded
-          arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-          vr-mode-ui="enabled: false"
-          renderer="logarithmicDepthBuffer: true; alpha: true;"
-        >
-          {/* إضاءة خفيفة عامة */}
-          <a-entity light="type: ambient; color: #ffffff; intensity: 0.8"></a-entity>
-          {/* إضاءة فوق البوابة لإبراز العمق */}
-          <a-entity
-            light="type: point; color: #ffffff; intensity: 1.2"
-            position="0 1.2 1"
-          ></a-entity>
+      {/* مشهد AR – نعرضه مباشرة بدون useState عشان ما يعلق */}
+      <a-scene
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        vr-mode-ui="enabled: false"
+        renderer="logarithmicDepthBuffer: true; alpha: true;"
+      >
+        {/* إضاءة عامة */}
+        <a-entity light="type: ambient; color: #ffffff; intensity: 0.8"></a-entity>
+        {/* إضاءة نقطية فوق البوابة */}
+        <a-entity
+          light="type: point; color: #ffffff; intensity: 1.2"
+          position="0 1.2 1"
+        ></a-entity>
 
-          {/* الماركر */}
-          <a-marker preset="hiro">
-            {/* بوابة زمنية = حلقة Torus تدور حول نفسها */}
-            <a-torus
-              position="0 0.6 0"
-              rotation="0 0 0"
-              radius="0.6"
-              radius-tubular="0.08"
-              segments-radial="32"
-              segments-tubular="48"
-              material="color: #FDE68A; metalness: 0.8; roughness: 0.15; emissive: #F59E0B; emissiveIntensity: 0.6"
-              animation__spin="property: rotation; to: 0 360 0; loop: true; dur: 3500; easing: linear"
-              animation__pulse="property: scale; dir: alternate; dur: 1400; easing: easeInOutSine; loop: true; to: 1.08 1.08 1.08"
-            ></a-torus>
+        {/* الماركر */}
+        <a-marker preset="hiro">
+          {/* البوابة الزمنية – حلقة Torus تدور وتنبض */}
+          <a-torus
+            position="0 0.6 0"
+            rotation="0 0 0"
+            radius="0.6"
+            radius-tubular="0.08"
+            segments-radial="32"
+            segments-tubular="48"
+            material="color: #FDE68A; metalness: 0.8; roughness: 0.15; emissive: #F59E0B; emissiveIntensity: 0.6"
+            animation__spin="property: rotation; to: 0 360 0; loop: true; dur: 3500; easing: linear"
+            animation__pulse="property: scale; dir: alternate; dur: 1400; easing: easeInOutSine; loop: true; to: 1.08 1.08 1.08"
+          ></a-torus>
 
-            {/* حافة داخلية خفيفة تعطي إحساس بالعمق */}
-            <a-torus
-              position="0 0.6 0"
-              rotation="0 0 0"
-              radius="0.32"
-              radius-tubular="0.02"
-              segments-radial="32"
-              segments-tubular="48"
-              material="color: #FEF9C3; metalness: 0.7; roughness: 0.1; emissive: #FACC15; emissiveIntensity: 0.8"
-            ></a-torus>
+          {/* حلقة داخلية أرفع لزيادة العمق */}
+          <a-torus
+            position="0 0.6 0"
+            rotation="0 0 0"
+            radius="0.32"
+            radius-tubular="0.02"
+            segments-radial="32"
+            segments-tubular="48"
+            material="color: #FEF9C3; metalness: 0.7; roughness: 0.1; emissive: #FACC15; emissiveIntensity: 0.8"
+          ></a-torus>
 
-            {/* مسار ضوئي رقيق يتحرك حول البوابة */}
-            <a-ring
-              position="0 0.6 0.01"
-              rotation="-90 0 0"
-              radius-inner="0.34"
-              radius-outer="0.36"
-              material="color: #FCD34D; opacity: 0.5; transparent: true"
-              animation__rotate="property: rotation; to: -90 0 360; loop: true; dur: 4200; easing: linear"
-            ></a-ring>
+          {/* حلقة ضوئية مسطّحة تتحرك حول البوابة */}
+          <a-ring
+            position="0 0.6 0.01"
+            rotation="-90 0 0"
+            radius-inner="0.34"
+            radius-outer="0.36"
+            material="color: #FCD34D; opacity: 0.5; transparent: true"
+            animation__rotate="property: rotation; to: -90 0 360; loop: true; dur: 4200; easing: linear"
+          ></a-ring>
 
-            {/* نص صغير تحت البوابة */}
-            <a-text
-              value="Zaman AR • Time Gate"
-              position="0 0.05 0"
-              align="center"
-              color="#ffffff"
-              width="3"
-            ></a-text>
-          </a-marker>
+          {/* نص تحت البوابة */}
+          <a-text
+            value="Zaman AR • Time Gate"
+            position="0 0.05 0"
+            align="center"
+            color="#ffffff"
+            width="3"
+          ></a-text>
+        </a-marker>
 
-          {/* الكاميرا */}
-          <a-entity camera></a-entity>
-        </a-scene>
-      )}
+        {/* الكاميرا */}
+        <a-entity camera></a-entity>
+      </a-scene>
     </>
   );
 }
